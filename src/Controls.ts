@@ -4,13 +4,17 @@ export class Controls {
   right: boolean
   reverse: boolean
 
-  constructor() {
+  constructor(type: string) {
     this.forward = false
     this.left = false
     this.right = false
     this.reverse = false
 
-    this.#addKeyboardListeners()
+    if (type === "KEYS") {
+      this.#addKeyboardListeners()
+    } else {
+      this.forward = true
+    }
   }
 
   #addKeyboardListeners() {
