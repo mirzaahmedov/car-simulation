@@ -1,4 +1,5 @@
 import { Controls } from "./Controls"
+import { NeuralNetworks } from "./netrork"
 import { Sensor } from "./Sensor"
 import { polysIntersect } from "./utils"
 
@@ -17,7 +18,9 @@ export class Car {
 
   angle: number
 
-  sensor: Sensor
+  sensor?: Sensor
+  brain?: NeuralNetworks
+  useBrain: boolean
   controls: Controls
 
   constructor(x: number, y: number, width: number, height: number, control_type: string, maxSpeed: number = 3) {
@@ -37,24 +40,46 @@ export class Car {
 
     this.polygon = []
 
-    this.sensor = new Sensor(this)
+    this.useBrain = control_type === "AI"
+
+    if (control_type !== "DUMMY") {
+      this.sensor = new Sensor(this)
+      this.brain = new NeuralNetworks([
+        this.sensor.rayCount,
+        6,
+        4
+      ])
+    }
     this.controls = new Controls(control_type)
   }
-  update(roadBorders: { x: number, y: number }[][]) {
+  update(roadBorders: { x: number, y: number }[][], traffic: Car[]) {
     if (!this.damaged) {
       this.#move()
       this.polygon = this.#createPolygon()
-      this.damaged = this.#assessDamage(roadBorders)
+      this.damaged = this.#assessDamage(roadBorders, traffic)
     }
-    this.sensor.update(roadBorders)
+    if (this.sensor && this.brain) {
+      this.sensor.update(roadBorders, traffic)
+      const offsets = this.sensor.readings.map(
+        s => s === null ? 0 : 1 - s.offset
+      )
+      const outputs = NeuralNetworks.feedForward(offsets, this.brain)
+
+      if (this.useBrain) {
+        this.controls.forward = !!outputs[0]
+        this.controls.left = !!outputs[1]
+        this.controls.right = !!outputs[2]
+        this.controls.reverse = !!outputs[3]
+      }
+    }
   }
-  draw(ctx: CanvasRenderingContext2D) {
+  draw(ctx: CanvasRenderingContext2D, color: string, drawSensors: boolean = false) {
     ctx.beginPath()
 
     if (this.damaged) {
       ctx.fillStyle = "grey"
     } else {
-      ctx.fillStyle = "black"
+      ctx.fillStyle = color
     }
 
     const points = this.#createPolygon()
@@ -66,7 +91,9 @@ export class Car {
     }
     ctx.fill()
 
-    this.sensor.draw(ctx)
+    if (this.sensor && drawSensors) {
+      this.sensor.draw(ctx)
+    }
   }
   #createPolygon() {
     const points = []
@@ -127,9 +154,15 @@ export class Car {
     this.x -= Math.sin(this.angle) * this.speed
     this.y -= Math.cos(this.angle) * this.speed
   }
-  #assessDamage(roadBorders: { x: number, y: number }[][]) {
+  #assessDamage(roadBorders: { x: number, y: number }[][], traffic: Car[]) {
     for (let i = 0; i < roadBorders.length; i++) {
       if (polysIntersect(this.polygon, roadBorders[i])) {
+        return true
+      }
+    }
+
+    for (let i = 0; i < traffic.length; i++) {
+      if (polysIntersect(this.polygon, traffic[i].polygon)) {
         return true
       }
     }

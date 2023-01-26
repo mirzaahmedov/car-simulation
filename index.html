@@ -16,19 +16,29 @@
 
     body {
       background-color: #ccc;
+      display: flex;
+      justify-content: center;
     }
 
     #canvas {
       display: block;
-      margin: 0 auto;
       background-color: #eee;
+    }
+
+    #network_view {
+      display: block;
+      background-color: black;
     }
   </style>
 </head>
 
 <body>
-  <div id="app"></div>
   <canvas id="canvas"></canvas>
+  <div class="buttons">
+    <button id="save-button">Save</button>
+    <button id="discard-button">Discard</button>
+  </div>
+  <canvas id="network_view"></canvas>
   <script type="module" src="/src/main.ts"></script>
 </body>
 
